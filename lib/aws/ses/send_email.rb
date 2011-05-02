@@ -101,14 +101,20 @@ module AWS
         package = { 'RawMessage.Data' => Base64::encode64(message.to_s) }
         package['Source'] = args[:from] if args[:from]
         package['Source'] = args[:source] if args[:source]
+        
+        # Extract the list of recipients based on arguments or mail headers
+        destinations = []
         if args[:destinations]
-            add_array_to_hash!(package, 'Destinations', args[:destinations])
+          destinations.concat args[:destinations].to_a
+        elsif args[:to]
+          destinations.concat args[:to].to_a
         else
-            add_array_to_hash!(package, 'Destinations', args[:to]) if args[:to]
+          destinations.concat mail.to.to_a
+          destinations.concat mail.cc.to_a
+          destinations.concat mail.bcc.to_a
         end
-        result = request('SendRawEmail', package)
-        message.message_id = "#{result.parsed['SendRawEmailResult']['MessageId']}@email.amazonses.com"
-        result
+        add_array_to_hash!(package, 'Destinations', destinations) if destinations.length > 0
+        request('SendRawEmail', package)
       end
 
       alias :deliver! :send_raw_email
